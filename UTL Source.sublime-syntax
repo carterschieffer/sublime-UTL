@@ -1,0 +1,290 @@
+%YAML 1.2
+---
+name: UTL Source
+hidden: true
+scope: source.utl
+variables:
+  identifier_start: '[[:alpha:]_]'
+  identifier: '\b{{identifier_start}}[[:alnum:]_]*\b'
+  path: '\\?({{identifier}}\\)*{{identifier}}'
+
+contexts:
+  main:
+    - include: statements
+
+  statements:
+    - include: function
+    - include: expressions
+
+  block:
+    - include: embedded-html
+    - include: statements
+
+  embedded-html:
+    - match: (-?%\])(\s*\n)?
+      scope: meta.embedded.block.utl
+      captures:
+        1: punctuation.section.embedded.end.utl
+        2: meta.html-newline-after-utl.utl
+      push:
+        - meta_scope: embedding.utl text.html.basic
+        - clear_scopes: true
+        - match: \[%-?
+          scope: meta.embedded.block.utl punctuation.section.embedded.begin.utl
+          pop: true
+        - match: ''
+          with_prototype:
+            - include: single-line-utl-tag
+            - match: (?=\[%-?)
+              pop: true
+          push: scope:text.html.basic
+
+  single-line-utl-tag:
+    - match: (?:\[%-?(?=.*-?%\]))
+      scope: punctuation.section.embedded.begin.utl
+      push:
+        - meta_scope: meta.embedded.line.nested.utl
+        - meta_content_scope: source.utl
+        - match: (-?%\])(\s*\n)?
+          captures:
+            1: punctuation.section.embedded.end.utl
+            2: meta.html-newline-after-utl.utl
+          pop: true
+        - include: statements
+
+  expressions:
+    - include: comments
+    - match: \b(break|continue|else(if)?|end|for(each)?|if|while|exit|return|then)\b
+      scope: keyword.control.utl
+    - include: strings
+    - match: ;
+      scope: punctuation.terminator.expression.utl
+    - include: numbers
+    - match: (\+|-|\*|/|%|\.)=
+      scope: keyword.operator.assignment.augmented.utl
+    - match: '(?:(\=)(&))|(&(?=[[:alpha:]$_]))'
+      captures:
+        1: keyword.operator.assignment.utl
+        2: storage.modifier.reference.utl
+        3: storage.modifier.reference.utl
+    - match: (\-\-|\+\+)
+      scope: keyword.operator.increment-decrement.utl
+    - match: (\-|\+|\*|/|%)
+      scope: keyword.operator.arithmetic.utl
+    - match: (==|!=|<=|>=|<|>)
+      scope: keyword.operator.comparison.utl
+    - match: (?i)(!|&&|\|\|)|\b(as)\b
+      scope: keyword.operator.logical.utl
+    - include: function-call
+    - match: \.
+      scope: keyword.operator.string.utl
+    - match: "="
+      scope: keyword.operator.assignment.utl
+    - match: '(\[)\s*(\])'
+      scope: meta.array.empty.utl
+      captures:
+        1: punctuation.section.array.begin.utl
+        2: punctuation.section.array.end.utl
+    - match: '\['
+      scope: punctuation.section.array.begin.utl
+      push:
+        - meta_scope: meta.array.utl
+        - match: '\]'
+          scope: punctuation.section.array.end.utl
+          pop: true
+        - include: expressions
+    - include: constants
+    - include: variables
+
+  after-identifier:
+    - include: item-access
+    - match: '(?=\S)'
+      pop: true
+
+  after-function-call:
+    - include: item-access
+    - match: '(?=\S)'
+      pop: true
+
+  item-access:
+    - match: '\['
+      scope: meta.item-access.utl punctuation.section.brackets.begin.utl
+      push:
+        - meta_content_scope: meta.item-access.arguments.utl
+        - match: '\]'
+          scope: meta.item-access.utl punctuation.section.brackets.end.utl
+          pop: true
+        - include: expressions
+
+  function:
+    - match: (?i)(?=\bmacro\b\s*{{identifier_start}})
+      push:
+        - meta_content_scope: meta.function.utl
+        - include: comments
+        - match: (?i)\bmacro\b
+          scope: storage.type.function.utl
+        - match: '{{identifier}}'
+          scope: entity.name.function.utl
+        # Lookahead is used here to prevent doubling up of meta.function and meta.function.parameters
+        - match: (?=\()
+          set:
+            - match: \(
+              scope: meta.function.parameters.utl meta.group.utl punctuation.section.group.begin.utl
+              set: function-parameters
+        # Exit on unexpected content
+        - match: (?=\S)
+          pop: true
+
+  function-parameters:
+    - meta_content_scope: meta.function.parameters.utl meta.group.utl
+    - match: '\)'
+      scope: punctuation.section.group.end.utl
+      set:
+        - meta_content_scope: meta.function.utl
+        - match: '(?=:)'
+          set: function-return-type
+        #- match: ;
+        #  scope: meta.block.utl punctuation.section.block.begin.utl
+        #  set: function-body
+        # Exit on unexpected content
+        - match: (?=\S)
+          pop: true
+    - include: comments
+    - match: '{{identifier}}'
+      scope: variable.parameter.utl
+      captures:
+        1: punctuation.definition.variable.utl
+    - match: ','
+      scope: punctuation.separator.utl
+    - match: '='
+      scope: keyword.operator.assignment.utl
+      push:
+        - match: '(?=,|\))'
+          pop: true
+        - include: expressions
+
+  function-return-type:
+    - meta_content_scope: meta.function.return-type.utl
+    - match: '(?=;)'
+      pop: true
+    - match: ':'
+      scope: punctuation.separator.utl
+    # Exit on unexpected content
+    - match: (?=\S)
+      pop: true
+
+  # TODO: function blocks need work
+  function-body:
+    - meta_content_scope: meta.function.utl meta.block.utl
+    - match: end;?
+      scope: meta.function.utl meta.block.utl punctuation.section.block.end.utl
+      pop: true
+    - include: embedded-html
+    #- match: '\{'
+    #  scope: punctuation.section.block.begin.utl
+    #  push: block
+    - include: statements
+
+  comments:
+    - match: /\*
+      scope: punctuation.definition.comment.begin.utl
+      push:
+        - meta_scope: comment.block.utl
+        - match: \*/
+          scope: punctuation.definition.comment.end.utl
+          pop: true
+
+  constants:
+    - match: (?i)\b(TRUE|FALSE|NULL)\b
+      scope: constant.language.utl
+
+  function-call:
+    # Functions in a user-defined namespace should only be highlighted as user,
+    # any built-in function names should not be highlighted specially
+    - match: '(?={{path}}\\{{identifier}}\s*\()'
+      push:
+        - meta_scope: meta.function-call.utl
+        - meta_content_scope: meta.path.utl
+        #- include: identifier-parts
+        - match: '{{identifier}}(?=\s*\()'
+          scope: variable.function.utl
+          set: function-call-parameters
+    - match: (?i)\b(echo)\b
+      scope: support.function.construct.utl
+    # Root namespace function calls may be a built-in or user
+    - match: '(\\)?(?={{identifier}}\s*\()'
+      captures:
+        1: punctuation.separator.namespace.utl
+      push:
+        - meta_scope: meta.function-call.utl
+        - match: (?=\s*\()
+          set: function-call-parameters
+        #- include: support
+        - match: '{{identifier}}'
+          scope: variable.function.utl
+
+  function-call-parameters:
+    - match: \s*(\()
+      scope: meta.function-call.utl
+      captures:
+        1: meta.group.utl punctuation.section.group.begin.utl
+      set:
+        - meta_content_scope: meta.function-call.utl meta.group.utl
+        - match: \)
+          scope: meta.function-call.utl meta.group.utl punctuation.section.group.end.utl
+          set: after-function-call
+        - match: ','
+          scope: punctuation.separator.utl
+        - include: expressions
+
+  numbers:
+    - match: |-
+        (?x:
+          (?:(\b\d+|\B)\.\d+|\b\d+\.\d*)(?:[eE][+-]?\d+)?\b
+          |
+          \b\d+(?:[eE][+-]?\d+)\b
+        )
+      scope: constant.numeric.float.decimal.utl
+    - match: '\b\d+\b'
+      scope: constant.numeric.integer.decimal.utl
+
+  string-double-quoted:
+    - match: '"'
+      scope: punctuation.definition.string.begin.utl
+      push:
+        - meta_scope: string.quoted.double.utl
+        - meta_content_scope: meta.string-contents.quoted.double.utl
+        - match: '(?=\S)'
+          set:
+            - meta_scope: string.quoted.double.utl
+            - meta_content_scope: meta.string-contents.quoted.double.utl
+            - match: '"'
+              scope: punctuation.definition.string.end.utl
+              pop: true
+
+  string-single-quoted:
+    - match: "'"
+      scope: punctuation.definition.string.begin.utl
+      push:
+        - meta_scope: string.quoted.single.utl
+        - meta_content_scope: meta.string-contents.quoted.single.utl
+        - match: '(?=\S)'
+          set:
+            - meta_scope: string.quoted.single.utl
+            - meta_content_scope: meta.string-contents.quoted.single.utl
+            - match: "'"
+              scope: punctuation.definition.string.end.utl
+              pop: true
+            - match: '\\[\\'']'
+              scope: constant.character.escape.utl
+
+  strings:
+    - include: string-double-quoted
+    - include: string-single-quoted
+
+  variables:
+    - match: '{{identifier}}'
+      scope: variable.other.utl
+      captures:
+        1: punctuation.definition.variable.utl
+      push: after-identifier

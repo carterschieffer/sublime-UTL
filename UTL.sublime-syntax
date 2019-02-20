@@ -1,0 +1,36 @@
+%YAML 1.2
+---
+# See http://www.sublimetext.com/docs/3/syntax.html
+name: UTL
+file_extensions:
+  - utl
+scope: embedding.utl
+
+contexts:
+  main:
+    # Strings begin and end with quotes, and use backslashes as an escape
+    # character
+    - match: ''
+      push: scope:text.html.basic
+      with_prototype:
+        - match: \[%-?(?![^-]?[^%]*%\])
+          scope: punctuation.section.embedded.begin.utl
+          push:
+            - meta_scope: meta.embedded.block.utl
+            - meta_content_scope: source.utl
+            - include: utl-end-tag-pop
+            - include: scope:source.utl
+        - match: \[%-?
+          scope: punctuation.section.embedded.begin.utl
+          push:
+            - meta_scope: meta.embedded.line.utl
+            - meta_content_scope: source.utl
+            - include: utl-end-tag-pop
+            - include: scope:source.utl
+
+  utl-end-tag-pop:
+    - match: (-?%\])(\s*\n*)?
+      captures:
+        1: punctuation.section.embedded.end.utl
+        2: meta.html-newline-after-utl.utl
+      pop: true

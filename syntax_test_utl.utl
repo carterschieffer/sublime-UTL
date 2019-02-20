@@ -1,0 +1,75 @@
+<html>
+<head>
+</head>
+<body>
+
+[%-
+    string = 'foo';
+    num = 123;
+    float = 10.5;
+    bool = true;
+    other_bool = false;
+    nil = null;
+    array1 = [1,2,3,4,5];
+    array2 = ['1','2','3'];
+    array3 = ['foo':'bar', 'baz':9];
+    array3.key1 = 'new value';
+    array3.key2 = "new value";
+    echo array3.foo;
+    echo array3['baz'];
+    echo array2[0];
+
+    foreach array1 as item;
+        echo item;
+    end;
+
+    num += 2;
+    num -= 1;
+    num *= 2;
+    num /= 1;
+
+    string2 = 'foo' + 'bar' + 2;
+
+    if num == num2 then echo 'stuff';
+    if num > num2 then echo 'stuff';
+    if num >= num2 then echo 'stuff';
+    if num < num2 then echo 'stuff';
+    if num <= num2 then echo 'stuff';
+
+    if bool && bool2 || bool3 then echo 'yolo';
+
+    if bool then echo 'bool is true';
+    if other_bool;
+        echo 'cool things';
+    end;
+
+    array = [];
+
+    /* this is a comment */
+    /*
+        This is a multi
+        line comment
+    */
+
+    macro foo(param1, param2, param3);
+        echo things;
+    end;
+
+    foo('param1':'test', thing, 'param3':['foo':'bar']);
+
+    macro foo2();
+        return things;
+    end;
+-%]
+
+<div>
+    [%- num -%]
+    [%- macro bar(baz, oSettings=['test':'foo']) -%]
+        [%-
+            echo 'magic';
+        -%]
+    [%- end -%]
+</div>
+
+</body>
+</html>
